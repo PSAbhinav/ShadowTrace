@@ -261,14 +261,14 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                 <GlobeComponent 
                     selectedAccount={accountEmail}
                     showOverlay={false}
-                    points={logs.filter(l => l.location).map(l => ({
+                    points={logs.filter(l => l.location?.lat && l.location?.lng).map(l => ({
                         lat: l.location.lat,
                         lng: l.location.lng,
                         size: 0.05,
                         color: l.status === 'OK' ? '#00f2fe' : '#ff0055',
                         label: `${l.endpoint} [${l.ip}]`
                     }))}
-                    arcs={alerts.filter(a => a.location).map(a => ({
+                    arcs={alerts.filter(a => a.location?.lat && a.location?.lng).map(a => ({
                         startLat: a.location.lat,
                         startLng: a.location.lng,
                         endLat: 40.7128, // Dashboard Core (Simulated User Home)
@@ -351,14 +351,14 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                     <Search size={14} className="text-pink-500" />
                                 </div>
                                 <div className="flex justify-between items-start mb-2">
-                                    <span className="text-[10px] font-black text-pink-500 uppercase">{alert.threat.type}</span>
+                                    <span className="text-[10px] font-black text-pink-500 uppercase">{alert.threat?.type || 'UNKNOWN THREAT'}</span>
                                     <span className="text-[9px] text-zinc-600 font-mono">ID: {alert.id.slice(0,6)}</span>
                                 </div>
                                 <div className="text-xs font-bold text-white mb-2 flex items-center gap-2">
                                     <MapPin size={12} className="text-pink-500" /> {alert.location?.city || 'Origin Unknown'}
                                 </div>
                                 <p className="text-[10px] text-zinc-400 font-mono italic">
-                                    {alert.analyst.explanation}
+                                    {alert.analyst?.explanation || 'No analyst reasoning available.'}
                                 </p>
                             </div>
                         ))}
@@ -382,8 +382,8 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                     
                     {(() => {
                         const activeAlert = alerts[0]; // Use latest alert for context
-                        const isHighRisk = activeAlert?.threat.level === 'High';
-                        const threatType = activeAlert?.threat.type || 'Standard Probe';
+                        const isHighRisk = activeAlert?.threat?.level === 'High';
+                        const threatType = activeAlert?.threat?.type || 'Standard Probe';
                         
                         if (!isAlphaEnabled) {
                             return (

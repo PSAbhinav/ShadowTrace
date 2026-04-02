@@ -267,16 +267,23 @@ export default function Dashboard() {
     }, [selectedAccountId]);
 
     const globePoints = useMemo(() => {
-        const p = logs.map(l => ({ lat: l.location.lat, lng: l.location.lng, color: l.status === 'OK' ? '#0ea5e9' : '#f43f5e' }));
-        return p;
+        return logs
+            .filter(l => l.location?.lat && l.location?.lng)
+            .map(l => ({ 
+                lat: l.location.lat, 
+                lng: l.location.lng, 
+                color: l.status === 'OK' ? '#0ea5e9' : '#f43f5e' 
+            }));
     }, [logs]);
 
     const globeArcs = useMemo(() => {
-        return alerts.map(a => ({
-            startLat: 40.7128, startLng: -74.0060,
-            endLat: a.location.lat, endLng: a.location.lng,
-            color: a.threat.level === 'High' ? '#f43f5e' : '#eab308'
-        }));
+        return alerts
+            .filter(a => a.location?.lat && a.location?.lng)
+            .map(a => ({
+                startLat: 40.7128, startLng: -74.0060,
+                endLat: a.location.lat, endLng: a.location.lng,
+                color: a.threat?.level === 'High' ? '#f43f5e' : '#eab308'
+            }));
     }, [alerts]);
     
     // Listen for Simulated Alerts from Settings

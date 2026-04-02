@@ -26,12 +26,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'TOTP not configured. Complete setup first.' }, { status: 403 });
         }
 
-        // Verify with 1 window (±30 seconds) to allow for clock drift
+        // Verify with 2 window (±60 seconds) to allow for clock drift
         const isValid = speakeasy.totp.verify({
             secret: totpSecret,
             encoding: 'base32',
             token: code,
-            window: 1
+            window: 2
         });
 
         if (!isValid) {

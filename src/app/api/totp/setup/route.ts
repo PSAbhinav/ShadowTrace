@@ -20,8 +20,10 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: `Database error` }, { status: 500 });
         }
 
-        if (userDoc.exists && userDoc.data()?.totpSetupComplete) {
-            return NextResponse.json({ error: 'TOTP already configured' }, { status: 409 });
+        if (userDoc.exists && userDoc.data()?.totpSecret) {
+            const existingSecret = userDoc.data()?.totpSecret;
+            const otpauth = `otpauth://totp/ShadowTrace:${email}?secret=${existingSecret}&issuer=ShadowTrace`;
+            return NextResponse.json({ otpauth, secret: existingSecret });
         }
 
         // Generate new TOTP secret
