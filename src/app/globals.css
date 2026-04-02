@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@theme {
+  --font-orbitron: var(--font-orbitron);
+  --font-inter: var(--font-inter);
+
+  --color-cyber-dark: #0a0a0c;
+  --color-cyber-bg: #0d0d12;
+  --color-cyber-border: #1f1f2e;
+  --color-cyber-card: #12121e;
+  --color-cyber-accent: #00f2ff;
+  --color-cyber-alert: #ff0055;
+  --color-cyber-warning: #ffcc00;
+  --color-cyber-success: #00ff99;
+  --color-cyber-surface: rgba(255, 255, 255, 0.03);
+
+  --shadow-glow-cyan: 0 0 15px rgba(0, 242, 255, 0.3);
+  --shadow-glow-red: 0 0 15px rgba(255, 0, 85, 0.3);
+
+  --background-image-gradient-radial: radial-gradient(var(--tw-gradient-stops));
+  --background-image-gradient-conic: conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops));
+}
+
+:root {
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 10, 10, 12;
+  --background-end-rgb: 0, 0, 0;
+
+  --font-orbitron: 'Orbitron', sans-serif;
+  --font-inter: 'Inter', sans-serif;
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  min-height: 100vh;
+  font-family: var(--font-inter);
+}
+
+@utility text-balance {
+  text-wrap: balance;
+}
+
+/* Premium Cybersecurity UI Components */
+.cyber-glass {
+  background: rgba(18, 18, 30, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(31, 31, 46, 0.8);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.cyber-card {
+  @apply bg-cyber-card border border-cyber-border rounded-lg overflow-hidden transition-all duration-300;
+}
+
+.cyber-card:hover {
+  @apply border-cyber-accent shadow-glow-cyan;
+}
+
+.cyber-button {
+  @apply px-4 py-2 bg-transparent border border-cyber-accent text-cyber-accent rounded font-orbitron transition-all duration-300 flex items-center gap-2 hover:bg-cyber-accent hover:text-cyber-dark hover:shadow-glow-cyan uppercase tracking-wider text-sm;
+}
+
+.cyber-label {
+  @apply text-[10px] font-orbitron text-cyber-accent/60 uppercase tracking-widest mb-1;
+}
+
+.cyber-value {
+  @apply text-lg font-orbitron text-white;
+}
+
+.scanline {
+  width: 100%;
+  height: 100px;
+  z-index: 99;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0) 0%, rgba(0, 242, 255, 0.05) 50%, rgba(0, 0, 0, 0) 100%);
+  opacity: 0.1;
+  position: absolute;
+  bottom: 100%;
+  animation: scanline 10s linear infinite;
+}
+
+@keyframes scanline {
+  0% { bottom: 100%; }
+  100% { bottom: -100px; }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0d12;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f1f2e;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00f2ff;
+}
