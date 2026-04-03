@@ -320,16 +320,14 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                         </div>
                     </div>
                     <div className="flex flex-col gap-4">
-                        {logs.map(log => (
+                        {logs.length > 0 ? logs.map(log => (
                             <div 
                                 key={log.id} 
                                 onClick={() => {
-                                    // Try to find an alert that matches this log's context
                                     const matchingAlert = alerts.find(a => a.ip === log.ip || a.email === log.accountId);
                                     if (matchingAlert) {
                                         setSelectedAlert(matchingAlert);
                                     } else {
-                                        // Create a temporary "Log-level" forensic view if no full alert exists
                                         setSelectedAlert({
                                             id: `idx-${log.id}`,
                                             email: log.accountId || accountEmail,
@@ -338,7 +336,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                             status: log.status,
                                             location: log.location || { city: 'Unknown', lat: 0, lng: 0 },
                                             threat: { type: log.status === 'OK' ? 'Standard Protocol' : 'Suspicious Probe', severity: log.status === 'OK' ? 'Low' : 'Medium' },
-                                            analyst: { explanation: `This event was captured during automated monitoring. ${log.status === 'OK' ? 'No immediate threat detected.' : 'Repeated failures from this origin may trigger a full forensic scan.'}`, confidence: 75 }
+                                            analyst: { explanation: `This event was captured during monitoring. ${log.status === 'OK' ? 'No threat detected.' : 'Repeated failures may trigger an alert.'}`, confidence: log.status === 'OK' ? 5 : 45 }
                                         });
                                     }
                                 }}
@@ -357,7 +355,12 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                     {log.status}
                                 </div>
                             </div>
-                        ))}
+                        )) : (
+                            <div className="py-20 flex flex-col items-center justify-center border border-dashed border-white/5 rounded-xl bg-white/5">
+                                <Activity className="text-zinc-700 w-8 h-8 mb-3 opacity-20" />
+                                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">No Signal Traffic Found</span>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -495,7 +498,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                             <h2 className="text-lg font-black text-pink-500 uppercase tracking-[0.3em] flex items-center gap-3 italic">
                                 <Crosshair size={24} className="animate-spin-slow" /> Forensic Intelligence Deep-Dive
                             </h2>
-                            <p className="text-[10px] text-zinc-500 font-mono mt-1">TRACE_ID: {selectedAlert.id} // THREAT_LEVEL: CRITICAL</p>
+                            <p className="text-[10px] text-zinc-500 font-mono mt-1">TRACE_ID: {selectedAlert.id} // THREAT_LEVEL: {(selectedAlert.threat?.severity || 'LOW').toUpperCase()}</p>
                         </div>
                         <button 
                             onClick={() => setSelectedAlert(null)}
@@ -560,7 +563,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                             </div>
                             <div className="flex gap-6 items-start">
                                 <div className="relative p-4 rounded-full border-2 border-pink-500/20">
-                                    <div className="text-lg font-black text-white">{selectedAlert.analyst?.confidence}%</div>
+                                    <div className="text-lg font-black text-white">{selectedAlert.analyst?.confidence ?? (selectedAlert.status === 'OK' ? 0 : 45)}%</div>
                                     <div className="text-[7px] text-pink-500 absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black px-1 uppercase font-black">Risk</div>
                                 </div>
                                 <p className="text-xs text-zinc-400 font-mono italic leading-relaxed">

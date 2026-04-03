@@ -22,13 +22,35 @@ export interface GeoLocation {
 }
 
 export async function fetchGeoByIP(ip?: string): Promise<GeoLocation | null> {
-    const target = ip ? ip : "";
+    const target = ip ? ip.trim() : "";
+    
+    // ShadowTrace Localhost & Private Network Handling
+    const isMock = target === '::1' || target === '127.0.0.1' || target.startsWith('192.168.') || target.startsWith('10.');
+    if (isMock) {
+        console.log(`[ShadowTrace] Local Origin Detected (${target}). Returning Forensic Mock...`);
+        return {
+            status: 'success',
+            country: 'United States',
+            countryCode: 'US',
+            region: 'NY',
+            regionName: 'New York',
+            city: 'New York City',
+            zip: '10001',
+            lat: 40.7128,
+            lon: -74.0060,
+            timezone: 'America/New_York',
+            isp: 'ShadowTrace Internal Node',
+            org: 'Forensic Lab',
+            as: 'AS0001',
+            query: target
+        } as GeoLocation;
+    }
+
     try {
-        // Switching to freeipapi.com for HTTPS support and high accuracy
         const response = await fetch(`https://freeipapi.com/api/json/${target}`);
+        if (!response.ok) throw new Error('API unreachable');
         const data = await response.json();
         
-        // freeipapi response format differs slightly: latitude -> lat, longitude -> lon
         if (!data || !data.latitude) {
             console.error('[GEO_FETCH_ERROR] Invalid response from provider');
             return null;
@@ -36,16 +58,16 @@ export async function fetchGeoByIP(ip?: string): Promise<GeoLocation | null> {
         
         return {
             status: 'success',
-            country: data.countryName || 'Unknown',
+            country: data.countryName || 'Unknown Origin',
             countryCode: data.countryCode || '??',
             region: data.regionName || '',
-            regionName: data.regionName || 'Unknown',
-            city: data.cityName || 'Unknown',
+            regionName: data.regionName || 'Unknown Region',
+            city: data.cityName || 'Unknown City',
             zip: data.zipCode || '',
             lat: data.latitude,
             lon: data.longitude,
             timezone: data.timeZone || 'UTC',
-            isp: data.ipVersion === 4 ? 'Detected ISP' : 'Detected ISP (v6)',
+            isp: data.ipVersion === 4 ? (data.isp || 'Detected ISP') : 'Detected ISP (v6)',
             org: '',
             as: '',
             query: data.ipAddress || target
