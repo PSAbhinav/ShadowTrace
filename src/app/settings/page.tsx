@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
+import { APP_VERSION } from '@/lib/version';
 import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { 
     Shield, 
@@ -348,7 +349,7 @@ const SettingsPage = () => {
             <div className="absolute top-1/4 -right-24 w-64 h-64 bg-cyber-pink/5 rounded-full blur-3xl" />
             <div className="absolute bottom-1/4 -left-24 w-64 h-64 bg-cyber-accent/5 rounded-full blur-3xl" />
 
-            <div className="max-w-5xl mx-auto flex flex-col gap-10 relative z-10">
+            <div className="max-w-[1600px] mx-auto flex flex-col gap-10 relative z-10">
                 
                 {/* Header */}
                 <header className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-cyber-border pb-8">
@@ -361,10 +362,10 @@ const SettingsPage = () => {
                         </Link>
                         <div className="flex flex-col">
                             <h1 className="text-3xl font-black italic tracking-tighter text-white uppercase flex items-center gap-3">
-                                Guardian <span className="text-cyber-accent not-italic">Settings</span>
+                                ShadowTrace
                                 <SettingsIcon className="w-6 h-6 text-cyber-accent animate-spin-slow" />
                             </h1>
-                            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mt-1">Configure ShadowTrace AI Defense Parameters</p>
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mt-1">ShadowTrace Security Protocol v{APP_VERSION}</p>
                         </div>
                     </div>
                     

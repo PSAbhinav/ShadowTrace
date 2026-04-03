@@ -82,15 +82,18 @@ const GlobeComponent: React.FC<GlobeComponentProps> = ({
         }
     }, [centerLocation]);
 
-    // Rotation effect (Auto-rotate only when not centering on a location)
+    // Rotation effect
     useEffect(() => {
         if (globeRef.current) {
-            globeRef.current.controls().autoRotate = !centerLocation;
-            globeRef.current.controls().autoRotateSpeed = 0.8;
-            globeRef.current.controls().enableDamping = true;
-            globeRef.current.controls().dampingFactor = 0.05;
+            const controls = globeRef.current.controls();
+            if (controls) {
+                controls.autoRotate = true;
+                controls.autoRotateSpeed = centerLocation ? 0.4 : 0.8;
+                controls.enableDamping = true;
+                controls.dampingFactor = 0.05;
+            }
         }
-    }, [globeRef, centerLocation]);
+    }, [centerLocation, dimensions]); // Trigger on dimensions change too to ensure it's set after mount
 
     // Custom Cloud Layer
     useEffect(() => {

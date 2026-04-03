@@ -32,6 +32,8 @@ import {
 } from 'lucide-react';
 import { auth, db } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
+import { APP_VERSION } from "@/lib/version";
+import { fetchGeoByIP } from "@/lib/geo";
 import { 
     collection, 
     query, 
@@ -91,10 +93,24 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
     const [account, setAccount] = useState<AccountDetails | null>(null);
     const [logs, setLogs] = useState<any[]>([]);
     const [alerts, setAlerts] = useState<any[]>([]);
-    const [selectedAlert, setSelectedAlert] = useState<any | null>(null);
+    const [selectedAlert, setSelectedAlert] = useState<any>(null);
     const [isTerminating, setIsTerminating] = useState(false);
+    const [isAlphaEnabled, setIsAlphaEnabled] = useState(false);
+    const [realGeo, setRealGeo] = useState<any>(null);
 
-    const [isAlphaEnabled, setIsAlphaEnabled] = useState(true);
+    // Dynamic Geolocation for Forensic Deep-dive
+    useEffect(() => {
+        if (selectedAlert?.ip) {
+            fetchGeoByIP(selectedAlert.ip).then(geo => {
+                if (geo) {
+                    setRealGeo(geo);
+                    console.log(`[ShadowTrace] Real-time geo-analysis complete for origin: ${selectedAlert.ip}`);
+                }
+            });
+        } else {
+            setRealGeo(null);
+        }
+    }, [selectedAlert]);
 
     useEffect(() => {
         const session = localStorage.getItem('st_session');
@@ -201,7 +217,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
     if (!account) return <div className="min-h-screen bg-cyber-bg flex items-center justify-center text-cyber-blue font-mono">LOADING IDENTITY ENCRYPT...</div>;
 
     return (
-        <main className="min-h-screen bg-cyber-bg p-8 md:p-12 flex flex-col gap-12 max-w-[1400px] mx-auto">
+        <main className="min-h-screen bg-cyber-bg p-8 md:p-12 flex flex-col gap-12 max-w-[1600px] mx-auto">
             {/* Header */}
             <div className="flex items-center justify-between">
                 <Link href="/" className="flex items-center gap-2 text-zinc-500 hover:text-white transition-all group">
@@ -241,16 +257,16 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                             <ShieldAlert className="-skew-x-12 w-5 h-5" /> <span className="-skew-x-12">Unshielded Access</span>
                         </div>
                     )}
-                    <span className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.3em]">Guardian Protocol v4.0</span>
+                    <span className="text-[10px] text-zinc-500 font-black uppercase tracking-[0.3em]">ShadowTrace v{APP_VERSION}</span>
                 </div>
             </div>
 
             {/* Geo-Forensics Map */}
-            <div className="cyber-card relative h-[500px] overflow-hidden group border-cyan-500/20 shadow-glow-cyan/5">
+            <div className="cyber-card relative h-[400px] overflow-hidden group border-cyan-500/20 shadow-glow-cyan/5">
                 <div className="absolute top-8 left-8 z-10 pointer-events-none">
                     <div className="bg-black/40 backdrop-blur-xl border border-cyber-blue/20 p-4 rounded-lg">
                         <h3 className="text-sm font-black text-cyber-blue uppercase tracking-[0.3em] flex items-center gap-3 mb-2">
-                            <Globe size={18} className="animate-spin-slow text-cyber-accent" /> Account Safety Monitoring
+                            <Globe size={18} className="animate-spin-slow text-cyber-accent" /> ShadowTrace Forensic Node
                         </h3>
                         <div className="h-1.5 w-full bg-cyber-border/30 rounded-full overflow-hidden mb-2">
                             <div className="h-full bg-linear-to-r from-cyber-accent to-cyber-pink w-[78%]" />
@@ -289,10 +305,20 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
             {/* Forensic Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Event History */}
-                <div className="cyber-card flex flex-col p-6">
-                    <h3 className="text-sm font-black text-cyber-blue uppercase tracking-widest mb-6 flex items-center gap-2">
-                        <Clock size={16} /> Recent Activity Log
-                    </h3>
+                <div className="cyber-card flex flex-col p-5">
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="p-3 bg-cyber-accent/10 rounded-lg shadow-glow-cyan border border-cyber-accent/20">
+                            <Shield className="w-8 h-8 text-cyber-accent" />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">ShadowTrace</h1>
+                            <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[10px] uppercase font-bold text-cyber-blue font-mono">{APP_VERSION}</span>
+                                <span className="h-1 w-1 rounded-full bg-zinc-800" />
+                                <span className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold italic">Forensic Integrity Dashboard</span>
+                            </div>
+                        </div>
+                    </div>
                     <div className="flex flex-col gap-4">
                         {logs.map(log => (
                             <div 
@@ -316,7 +342,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                         });
                                     }
                                 }}
-                                className="flex items-center justify-between p-3 border-b border-white/5 hover:bg-white/5 transition-all cursor-pointer group rounded-lg"
+                                className="flex items-center justify-between p-2.5 border-b border-white/5 hover:bg-white/5 transition-all cursor-pointer group rounded-lg"
                             >
                                 <div className="flex items-center gap-3">
                                     <div className={`p-1.5 rounded-lg ${log.status === 'OK' ? 'bg-cyan-500/10 text-cyan-500' : 'bg-red-500/10 text-red-500'}`}>
@@ -336,7 +362,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                 </div>
 
                 {/* Threat Matrix */}
-                <div className="cyber-card flex flex-col p-6 border-pink-500/20">
+                <div className="cyber-card flex flex-col p-5 border-pink-500/20">
                     <h3 className="text-sm font-black text-cyber-pink uppercase tracking-widest mb-6 flex items-center gap-2">
                         <AlertTriangle size={16} /> Detected Identity Threats
                     </h3>
@@ -368,7 +394,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
             </div>
 
             {/* Reasoning Tree */}
-            <div className="cyber-card p-8 flex flex-col gap-8 border-cyan-500/10">
+            <div className="cyber-card p-6 flex flex-col gap-6 border-cyan-500/10">
                 <div className="flex flex-col gap-2">
                     <h3 className="text-xl font-black text-white italic tracking-tighter uppercase flex items-center gap-2">
                         <Terminal className="text-cyber-blue" /> Safety Analysis Steps
@@ -398,50 +424,15 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                         }
 
                         const steps = [
-                            { 
-                                agent: "Activity Watcher", 
-                                action: "Pattern Check", 
-                                result: threatType.includes('Travel') ? "Location Mismatch" : "Unusual Sign-in", 
-                                icon: Search, 
-                                color: "text-cyber-blue", 
-                                score: isHighRisk ? 92 : 88 
-                            },
-                            { 
-                                agent: "Risk Scanner", 
-                                action: "Comparison", 
-                                result: isHighRisk ? "Confirmed Threat" : "Strange Behavior", 
-                                icon: Activity, 
-                                color: "text-cyan-400", 
-                                score: isHighRisk ? 96 : 84 
-                            },
-                            { 
-                                agent: "Account Shield", 
-                                action: "Damage Assessment", 
-                                result: threatType.includes('IP') ? "Fake Identity Risk" : "Device Concern", 
-                                icon: Database, 
-                                color: "text-cyber-accent", 
-                                score: isHighRisk ? 85 : 72 
-                            },
-                            { 
-                                agent: "Safety Evaluator", 
-                                action: "Safety Score", 
-                                result: isHighRisk ? "Serious Risk" : "Minor Issue", 
-                                icon: ShieldAlert, 
-                                color: "text-cyber-warning", 
-                                score: isHighRisk ? 94 : 85 
-                            },
-                            { 
-                                agent: "Action Planner", 
-                                action: "Next Step", 
-                                result: activeAlert?.status === 'OPEN' ? "Shield Account" : "Safe Status", 
-                                icon: Zap, 
-                                color: "text-cyber-pink", 
-                                score: 99 
-                            }
+                            { agent: "Watcher", action: "Pattern", result: threatType.includes('Travel') ? "Loc Mismatch" : "Unusual", icon: Search, color: "text-cyber-blue", score: isHighRisk ? 92 : 88 },
+                            { agent: "Scanner", action: "Comparison", result: isHighRisk ? "Conflict" : "Anomalous", icon: Activity, color: "text-cyan-400", score: isHighRisk ? 96 : 84 },
+                            { agent: "Shield", action: "Assessment", result: threatType.includes('IP') ? "Identity Risk" : "Device Risk", icon: Database, color: "text-cyber-accent", score: isHighRisk ? 85 : 72 },
+                            { agent: "Evaluator", action: "Score", result: isHighRisk ? "Serious" : "Normal", icon: ShieldAlert, color: "text-cyber-warning", score: isHighRisk ? 94 : 85 },
+                            { agent: "Planner", action: "Action", result: activeAlert?.status === 'OPEN' ? "Shield" : "Safe", icon: Zap, color: "text-cyber-pink", score: 99 }
                         ];
 
                         return steps.map((step, i) => (
-                            <div key={i} className="bg-zinc-900/40 border border-white/5 p-4 rounded-xl relative z-10 flex flex-col gap-4 group hover:border-cyber-accent/30 transition-all hover:-translate-y-1">
+                            <div key={i} className="bg-zinc-900/40 border border-white/5 p-3 rounded-xl relative z-10 flex flex-col gap-3 group hover:border-cyber-accent/30 transition-all hover:-translate-y-1">
                                 <div className="flex justify-between items-start">
                                     <div className={`p-2 bg-black/40 rounded-lg ${step.color} border border-current/20`}>
                                         <step.icon size={16} />
@@ -528,11 +519,15 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                     </div>
                                     <div className="flex justify-between border-b border-white/5 pb-1">
                                         <span className="text-[10px] text-zinc-500 uppercase">City/Country</span>
-                                        <span className="text-[10px] text-white underline decoration-pink-500/30">{selectedAlert.location?.city}</span>
+                                        <span className="text-[10px] text-white underline decoration-pink-500/30">
+                                            {realGeo ? `${realGeo.city}, ${realGeo.regionName}` : (selectedAlert.location?.city || 'Scanning...')}
+                                        </span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-[10px] text-zinc-500 uppercase">ISP Provider</span>
-                                        <span className="text-[10px] text-white italic">{selectedAlert.forensicDetails?.isp || 'Encrypted Traffic'}</span>
+                                        <span className="text-[10px] text-white italic">
+                                            {realGeo?.isp || selectedAlert.forensicDetails?.isp || 'Encrypted Traffic'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -582,7 +577,19 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                     onClick={async () => {
                                         setIsTerminating(true);
                                         try {
-                                            // 1. Mark account as revoked in Firestore
+                                            const token = await auth.currentUser?.getIdToken();
+                                            if (token) {
+                                                // Trigger GLOBAL revocation via Admin API
+                                                await fetch('/api/auth/revoke-sessions', {
+                                                    method: 'POST',
+                                                    headers: { 
+                                                        'Authorization': `Bearer ${token}`,
+                                                        'Content-Type': 'application/json'
+                                                    }
+                                                });
+                                            }
+
+                                            // Mark account as revoked in Firestore
                                             const accountRef = doc(db, 'linked_accounts', id as string);
                                             await updateDoc(accountRef, {
                                                 security_status: 'REVOKED',
@@ -590,9 +597,9 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                                 risk_level: 'Critical'
                                             });
 
-                                            // 2. Kill local session
+                                            // Kill local session
                                             await signOut(auth);
-                                            localStorage.removeItem('st_session');
+                                            localStorage.clear();
                                             router.push('/login');
                                         } catch (error) {
                                             console.error("Revocation failed:", error);
@@ -608,6 +615,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                     </span>
                                     <span className="text-[8px] text-zinc-500 uppercase font-mono">Sign out everywhere</span>
                                 </button>
+
                                 <button 
                                     onClick={async () => {
                                         const accountRef = doc(db, 'linked_accounts', id as string);

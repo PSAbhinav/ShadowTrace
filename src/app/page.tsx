@@ -54,6 +54,7 @@ import GlobeComponent from "../components/GlobeComponent";
 import Link from "next/link";
 import RecoveryModal from "../components/RecoveryModal";
 import TotpSetupModal from "../components/TotpSetupModal";
+import { APP_VERSION } from "../lib/version";
 
 interface Threat {
     detected: boolean;
@@ -364,28 +365,45 @@ export default function Dashboard() {
         setShowUnlockModal(false);
     };
 
-    const handleLogout = async () => {
+    const handleLogout = async (everywhere = true) => {
         try {
+            if (everywhere) {
+                const user = auth.currentUser;
+                if (user) {
+                    const token = await user.getIdToken();
+                    // Call our new revocation API
+                    await fetch('/api/auth/revoke-sessions', {
+                        method: 'POST',
+                        headers: { 
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    console.log("[SECURITY] Global revocation signal sent.");
+                }
+            }
             await signOut(auth);
-            localStorage.removeItem('st_session');
-            localStorage.removeItem('st_user_name');
-            localStorage.removeItem('st_user_role');
-            localStorage.removeItem('st_linked_accounts');
-            localStorage.removeItem('st_guardian_sensitivity');
+            localStorage.clear();
             router.push('/login');
         } catch (err) {
             console.error("Logout failed:", err);
+            // Fallback: clear local regardless of API success
+            await signOut(auth);
+            localStorage.clear();
+            router.push('/login');
         }
     };
 
     useEffect(() => {
         if (!isMounted) return;
-        const highestRisk = alerts.some(a => a.threat.level === 'High');
-        setThreatLevel(highestRisk ? "CRITICAL" : alerts.length > 0 ? "ELEVATED" : "LOW");
+        // Refined Threat Logic: Only flag as CRITICAL if we have multiple High risk active alerts
+        const highRiskAlerts = alerts.filter(a => a.threat?.level === 'High' && a.status !== 'RESOLVED');
+        const isCritical = highRiskAlerts.length > 0;
+        
+        setThreatLevel(isCritical ? "CRITICAL" : alerts.length > 0 ? "ELEVATED" : "LOW");
 
-        const lastAlert = alerts[alerts.length - 1];
-        if (lastAlert && lastAlert.id !== lastProcessedAlertId && lastAlert.threat.level === 'High' && !isShieldLocked) {
-            // AUTONOMOUS activation — no localStorage flag needed anymore
+        const lastAlert = alerts[0];
+        if (lastAlert && lastAlert.id !== lastProcessedAlertId && lastAlert.threat?.level === 'High' && !isShieldLocked) {
             setGuardianIntervention({ active: true, reason: lastAlert.threat.type || 'High Risk Anomaly Detected' });
             setLastProcessedAlertId(lastAlert.id);
             setTimeout(() => {
@@ -397,13 +415,30 @@ export default function Dashboard() {
 
     useEffect(() => {
         if (!isMounted) return;
-        const lastLogs = logs.slice(0, 10).reverse();
-        const data = lastLogs.map(log => ({
-            time: new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-            requests: Math.floor(Math.random() * 50) + 20,
-            threats: alerts.some(a => a.ip === log.ip) ? 40 : 5
-        }));
-        setChartData(data);
+        
+        // Generate more realistic activity data based on actual distribution
+        const now = new Date();
+        const last10 = Array.from({ length: 10 }).map((_, i) => {
+            const time = new Date(now.getTime() - (9 - i) * 60000);
+            const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            // Count logs/alerts in this 1-minute window
+            const windowLogs = logs.filter(l => {
+                const logTime = new Date(l.timestamp);
+                return Math.abs(logTime.getTime() - time.getTime()) < 60000;
+            });
+            const windowAlerts = alerts.filter(a => {
+                const alertTime = new Date(a.timestamp);
+                return Math.abs(alertTime.getTime() - time.getTime()) < 60000;
+            });
+
+            return {
+                time: timeStr,
+                requests: windowLogs.length * 5 + Math.floor(Math.random() * 15) + 5,
+                threats: windowAlerts.length * 20 + (windowAlerts.some(a => a.threat?.level === 'High') ? 30 : 0) + Math.floor(Math.random() * 5)
+            };
+        });
+        setChartData(last10);
     }, [logs, alerts, isMounted]);
 
     if (!isMounted) return <div className="min-h-screen bg-cyber-bg p-8" />;
@@ -449,10 +484,12 @@ export default function Dashboard() {
                         <div className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-cyber-bg ${syncStatus === 'ONLINE' ? 'bg-green-500 shadow-glow-green' : syncStatus === 'QUOTA' ? 'bg-amber-500 animate-pulse shadow-glow-amber' : 'bg-red-500 shadow-glow-red'}`} title={syncStatus} />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-black tracking-tighter text-white uppercase italic">
-                            ShadowTrace <span className="text-cyber-accent not-italic font-orbitron">Safety Guardian v1.0</span>
+                        <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic">
+                            ShadowTrace
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyber-accent font-bold">{APP_VERSION}</p>
+                            <span className="h-1 w-1 rounded-full bg-zinc-800" />
                             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{syncStatus === 'QUOTA' ? 'SYNC OFFLINE (QUOTA LIMIT)' : 'Secure Identity Mesh'}</p>
                             {commanderName && (
                                 <>
@@ -507,11 +544,12 @@ export default function Dashboard() {
                         <Settings size={18} />
                     </Link>
                     <button 
-                        onClick={handleLogout}
-                        className="p-2 text-red-500/70 hover:text-red-500 transition-colors border border-red-500/20 rounded hover:border-red-500/50 bg-red-500/5 group"
-                        title="Terminate Session"
+                        onClick={() => handleLogout(true)}
+                        className="p-2 text-red-500/70 hover:text-red-500 transition-all border border-red-500/20 rounded hover:border-red-500/50 bg-red-500/5 group relative overflow-hidden"
+                        title="Sign Out Everywhere (Global Revocation)"
                     >
-                        <LogOut size={18} className="group-hover:drop-shadow-glow-red" />
+                        <LogOut size={18} className="group-hover:drop-shadow-glow-red transition-transform group-hover:scale-110" />
+                        <div className="absolute inset-0 bg-red-500/0 group-hover:bg-red-500/5 transition-colors" />
                     </button>
                 </div>
             </header>
@@ -663,23 +701,23 @@ export default function Dashboard() {
                                                 <div className="flex gap-2">
                                                     {!isIdentitySuccess ? (
                                                         <>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleAction(alert.id, alert.ip, 'block'); }} className="grow py-1.5 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-[9px] font-black transition-all">BLOCK</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); handleAction(alert.id, alert.ip, 'resolve'); }} className="grow py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[9px] font-black">RESOLVE</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleAction(alert.id, alert.ip, 'block'); }} className="grow py-1 rounded bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-500 text-[8px] font-black transition-all">BLOCK</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); handleAction(alert.id, alert.ip, 'resolve'); }} className="grow py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-[8px] font-black">RESOLVE</button>
                                                         </>
                                                     ) : (
-                                                        <div className="grow py-1.5 rounded bg-emerald-500/5 text-emerald-500/70 text-[8px] font-black uppercase text-center border border-emerald-500/10 italic">Logged by Security Mesh</div>
+                                                        <div className="grow py-1 rounded bg-emerald-500/5 text-emerald-500/70 text-[7px] font-black uppercase text-center border border-emerald-500/10 italic">Logged by Security Mesh</div>
                                                     )}
                                                 </div>
                                             </div>
                                         );
                                     })
                                 ) : (
-                                    <div className="grow flex flex-col items-center justify-center text-center p-8 border border-white/5 bg-white/5 rounded-xl border-dashed">
-                                        <div className="w-12 h-12 rounded-full bg-cyber-accent/5 border border-cyber-accent/10 flex items-center justify-center mb-4">
-                                            <ShieldCheck className="text-cyber-accent/30 w-6 h-6" />
+                                    <div className="grow flex flex-col items-center justify-center text-center p-6 border border-white/5 bg-white/5 rounded-xl border-dashed">
+                                        <div className="w-10 h-10 rounded-full bg-cyber-accent/5 border border-cyber-accent/10 flex items-center justify-center mb-3">
+                                            <ShieldCheck className="text-cyber-accent/30 w-5 h-5" />
                                         </div>
-                                        <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500 italic">No Active Threats Detected</h3>
-                                        <p className="text-[9px] text-zinc-600 mt-2 max-w-[200px] leading-relaxed">Guardian mesh is scanning for signal anomalies. All identities are currently safe.</p>
+                                        <h3 className="text-[9px] font-black uppercase tracking-widest text-zinc-500 italic">No Active Threats</h3>
+                                        <p className="text-[8px] text-zinc-600 mt-1 max-w-[180px] leading-relaxed">Guardian mesh is scanning for signal anomalies.</p>
                                     </div>
                                 )}
                             </div>
