@@ -24,24 +24,24 @@ export interface GeoLocation {
 export async function fetchGeoByIP(ip?: string): Promise<GeoLocation | null> {
     const target = ip ? ip.trim() : "";
     
-    // ShadowTrace Localhost & Private Network Handling
-    const isMock = target === '::1' || target === '127.0.0.1' || target.startsWith('192.168.') || target.startsWith('10.');
-    if (isMock) {
-        console.log(`[ShadowTrace] Local Origin Detected (${target}). Returning Forensic Mock...`);
+    // ShadowTrace Internal Security Node Handling (Zero-Mock Policy)
+    const isInternal = target === '::1' || target === '127.0.0.1' || target.startsWith('192.168.') || target.startsWith('10.');
+    
+    if (isInternal) {
         return {
             status: 'success',
-            country: 'United States',
-            countryCode: 'US',
-            region: 'NY',
-            regionName: 'New York',
-            city: 'New York City',
-            zip: '10001',
-            lat: 40.7128,
-            lon: -74.0060,
-            timezone: 'America/New_York',
-            isp: 'ShadowTrace Internal Node',
-            org: 'Forensic Lab',
-            as: 'AS0001',
+            country: 'Internal Static',
+            countryCode: 'INT',
+            region: 'SOC',
+            regionName: 'Command Node',
+            city: 'Local Node',
+            zip: '',
+            lat: 0,
+            lon: 0,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+            isp: 'Internal Command Infrastructure',
+            org: 'ShadowTrace SOC',
+            as: 'INTERNAL',
             query: target
         } as GeoLocation;
     }

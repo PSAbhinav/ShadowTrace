@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { db, auth } from '@/lib/firebase';
 import { APP_VERSION } from '@/lib/version';
-import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { initVersionSync } from '@/lib/versionSync';
+import { collection, doc, setDoc, deleteDoc, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { 
     Shield, 
     ChevronLeft, 
@@ -47,6 +48,8 @@ const SettingsPage = () => {
     const [saveStatus, setSaveStatus] = useState<string | null>(null);
     const [isMounted, setIsMounted] = useState(false);
     const [testCooldown, setTestCooldown] = useState<number>(0);
+    const [dynamicVersion, setDynamicVersion] = useState(APP_VERSION);
+    const [isPushingUpdate, setIsPushingUpdate] = useState(false);
 
     // Profile State
     const [userName, setUserName] = useState("");
@@ -117,7 +120,38 @@ const SettingsPage = () => {
                 console.error("Failed to parse stored accounts");
             }
         }
+
+        const unsubVersion = initVersionSync((newVersion: string) => {
+            setDynamicVersion(newVersion);
+        });
+
+        return () => unsubVersion();
     }, [router]);
+
+    const handlePushUpdate = async () => {
+        setIsPushingUpdate(true);
+        try {
+            const nextVersion = (parseFloat(dynamicVersion) + 0.1).toFixed(1);
+            const systemRef = doc(db, 'system', 'config');
+            await setDoc(systemRef, { version: nextVersion }, { merge: true });
+            
+            await addDoc(collection(db, 'logs'), {
+                type: 'SYSTEM_UPDATE',
+                version: nextVersion,
+                timestamp: serverTimestamp(),
+                status: 'SUCCESS',
+                analyst: 'Global Kernel'
+            });
+            setSaveStatus(`PUSHED v${nextVersion}`);
+            setTimeout(() => setSaveStatus(null), 3000);
+        } catch (error) {
+            console.error('Push Update Failed:', error);
+            setSaveStatus("PUSH FAILED");
+            setTimeout(() => setSaveStatus(null), 3000);
+        } finally {
+            setIsPushingUpdate(false);
+        }
+    };
 
     const detectProvider = (email: string) => {
         const domain = email.split('@')[1]?.toLowerCase();
@@ -365,7 +399,7 @@ const SettingsPage = () => {
                                 ShadowTrace
                                 <SettingsIcon className="w-6 h-6 text-cyber-accent animate-spin-slow" />
                             </h1>
-                            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mt-1">ShadowTrace Security Protocol v{APP_VERSION}</p>
+                            <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold mt-1">ShadowTrace Security Protocol v{dynamicVersion}</p>
                         </div>
                     </div>
                     
@@ -729,7 +763,19 @@ const SettingsPage = () => {
                                                 {testCooldown > 0 ? `COOLDOWN: ${testCooldown}S` : 'Initialize Brute Force Test'}
                                             </span>
                                         </button>
-                                        <p className="text-[8px] text-center text-zinc-600 mt-4 uppercase font-black">Test how our AI handles a simulated security threat immediately.</p>
+                                        
+                                        <button 
+                                            onClick={handlePushUpdate}
+                                            disabled={isPushingUpdate}
+                                            className="w-full mt-4 p-4 bg-pink-500/5 border border-pink-500/20 rounded-xl flex items-center justify-center gap-3 group hover:bg-pink-500/10 hover:border-pink-500/50 transition-all disabled:opacity-50"
+                                        >
+                                            <Zap className={`text-pink-500 ${isPushingUpdate ? 'animate-pulse' : 'group-hover:scale-110 transition-transform'}`} size={16} />
+                                            <span className="text-[10px] font-black text-white uppercase tracking-widest italic">
+                                                {isPushingUpdate ? 'PUSHING UPDATE...' : `Push System Upgrade to v${(parseFloat(dynamicVersion) + 0.1).toFixed(1)}`}
+                                            </span>
+                                        </button>
+                                        
+                                        <p className="text-[8px] text-center text-zinc-600 mt-4 uppercase font-black">Test or upgrade the system infrastructure in real-time.</p>
                                     </div>
                                 </div>
                             </div>
@@ -743,7 +789,7 @@ const SettingsPage = () => {
                     <div className="flex items-center gap-8">
                         <div className="flex flex-col text-left">
                             <span className="text-[8px] text-zinc-600 uppercase tracking-widest font-black">Protocol Revision</span>
-                            <span className="text-xs text-zinc-400 font-mono italic">v1.2.9-stable_release</span>
+                            <span className="text-xs text-zinc-400 font-mono italic">v{dynamicVersion}-stable_release</span>
                         </div>
                         <div className="h-8 w-px bg-cyber-border/50" />
                         <div className="flex flex-col text-left">

@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { Shield, Lock, User, Mail, ChevronRight, AlertTriangle, Terminal, Zap, RefreshCcw } from "lucide-react";
 import { auth, googleProvider, db } from "@/lib/firebase";
 import { signInWithPopup } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import TotpSetupModal from "@/components/TotpSetupModal";
+import { fetchGeoByIP } from "@/lib/geo";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -33,6 +34,64 @@ export default function LoginPage() {
             router.push("/");
         }
     }, [router]);
+
+    const logSecurityEvent = async (user: any, status: string) => {
+        try {
+            const geo = await fetchGeoByIP();
+            const logEntry = {
+                uid: user.uid,
+                email: user.email,
+                accountId: user.email, // Link to account for dashboard filtering
+                userName: user.displayName || "Unknown Commander",
+                timestamp: serverTimestamp(),
+                status: status,
+                ip: geo?.query || "UNKNOWN",
+                location: geo ? { city: geo.city, country: geo.country, lat: geo.lat, lng: geo.lon } : null,
+                device: {
+                    userAgent: navigator.userAgent,
+                    platform: navigator.platform,
+                    resolution: `${window.screen.width}x${window.screen.height}`,
+                    language: navigator.language,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                },
+                threatLevel: status === 'SUCCESS' ? 'LOW' : 'HIGH',
+                type: 'AUTHENTICATION_EVENT'
+            };
+
+            await addDoc(collection(db, "logs"), logEntry);
+            
+            // For the Intelligence Feed: Create a 'safe' alert or a 'threat' alert
+            await addDoc(collection(db, "alerts"), {
+                accountId: user.email,
+                ip: geo?.query || "UNKNOWN",
+                createdAt: serverTimestamp(),
+                status: status === 'SUCCESS' ? 'RESOLVED' : 'OPEN',
+                location: geo ? { city: geo.city, country: geo.country, lat: geo.lat, lng: geo.lon } : null,
+                threat: {
+                    type: status === 'SUCCESS' ? 'IDENTITY_SUCCESS' : 'LOGIN_ANOMALY',
+                    level: status === 'SUCCESS' ? 'Low' : 'High'
+                },
+                analyst: {
+                    explanation: status === 'SUCCESS' 
+                        ? `Identity handover successful. Secure session established from ${geo?.city || 'Verified Node'}.`
+                        : `Repeated authentication failure detected from ${geo?.query || 'Unknown IP'}. Potential brute force attempt.`,
+                    reasoning: status === 'SUCCESS' ? 'Valid credential + MFA match' : 'Multiple invalid credential signatures'
+                },
+                forensicDetails: logEntry.device
+            });
+            
+            // Also update account status
+            await setDoc(doc(db, "accounts", user.email!), {
+                lastSeen: serverTimestamp(),
+                lastIp: geo?.query || "UNKNOWN",
+                lastLocation: geo ? `${geo.city}, ${geo.country}` : "Unknown",
+                status: status === 'SUCCESS' ? 'SAFE' : 'INVESTIGATING'
+            }, { merge: true });
+
+        } catch (err) {
+            console.warn("[ShadowTrace] Forensic Logging Deferred:", err);
+        }
+    };
 
     const handleGoogleLogin = async () => {
         if (!isAccepted) {
@@ -94,6 +153,7 @@ export default function LoginPage() {
             }
 
             // TOTP already configured — proceed to dashboard
+            await logSecurityEvent(user, 'SUCCESS');
             finalizLogin(session, accounts);
         } catch (err: any) {
             console.error("Identity Handshake Error:", err);

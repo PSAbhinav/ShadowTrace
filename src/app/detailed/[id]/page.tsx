@@ -287,8 +287,8 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                     arcs={alerts.filter(a => a.location?.lat && a.location?.lng).map(a => ({
                         startLat: a.location.lat,
                         startLng: a.location.lng,
-                        endLat: 40.7128, // Dashboard Core (Simulated User Home)
-                        endLng: -74.0060,
+                        endLat: 0, // Zero-Mock Policy: No simulated home location
+                        endLng: 0,
                         color: '#ff0055'
                     }))}
                 />
@@ -336,7 +336,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                             status: log.status,
                                             location: log.location || { city: 'Unknown', lat: 0, lng: 0 },
                                             threat: { type: log.status === 'OK' ? 'Standard Protocol' : 'Suspicious Probe', severity: log.status === 'OK' ? 'Low' : 'Medium' },
-                                            analyst: { explanation: `This event was captured during monitoring. ${log.status === 'OK' ? 'No threat detected.' : 'Repeated failures may trigger an alert.'}`, confidence: log.status === 'OK' ? 5 : 45 }
+                                            analyst: { explanation: `This event was captured during monitoring. ${log.status === 'OK' ? 'No threat detected.' : 'Repeated failures may trigger an alert.'}`, confidence: log.status === 'OK' ? 5 : 0 }
                                         });
                                     }
                                 }}
@@ -563,7 +563,7 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                             </div>
                             <div className="flex gap-6 items-start">
                                 <div className="relative p-4 rounded-full border-2 border-pink-500/20">
-                                    <div className="text-lg font-black text-white">{selectedAlert.analyst?.confidence ?? (selectedAlert.status === 'OK' ? 0 : 45)}%</div>
+                                    <div className="text-lg font-black text-white">{selectedAlert.analyst?.confidence ?? (selectedAlert.status === 'OK' ? 0 : 0)}%</div>
                                     <div className="text-[7px] text-pink-500 absolute -bottom-1 left-1/2 -translate-x-1/2 bg-black px-1 uppercase font-black">Risk</div>
                                 </div>
                                 <p className="text-xs text-zinc-400 font-mono italic leading-relaxed">

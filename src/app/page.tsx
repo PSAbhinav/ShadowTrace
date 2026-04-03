@@ -54,6 +54,7 @@ import GlobeComponent from "../components/GlobeComponent";
 import Link from "next/link";
 import RecoveryModal from "../components/RecoveryModal";
 import TotpSetupModal from "../components/TotpSetupModal";
+import { initVersionSync } from "../lib/versionSync";
 import { APP_VERSION } from "../lib/version";
 
 interface Threat {
@@ -124,6 +125,37 @@ export default function Dashboard() {
     const [commanderEmail, setCommanderEmail] = useState("");
     const [commanderRole, setCommanderRole] = useState("");
     const [syncStatus, setSyncStatus] = useState<'ONLINE' | 'OFFLINE' | 'QUOTA'>('ONLINE');
+    const [dynamicVersion, setDynamicVersion] = useState(APP_VERSION);
+    const [isPushingUpdate, setIsPushingUpdate] = useState(false);
+    const [activeTab, setActiveTab] = useState('DASHBOARD');
+
+    useEffect(() => {
+        const unsubscribe = initVersionSync((newVersion: string) => {
+            setDynamicVersion(newVersion);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const handlePushUpdate = async () => {
+        setIsPushingUpdate(true);
+        try {
+            const nextVersion = (parseFloat(dynamicVersion) + 0.1).toFixed(1);
+            const systemRef = doc(db, 'system', 'config');
+            await setDoc(systemRef, { version: nextVersion }, { merge: true });
+            
+            await addDoc(collection(db, 'logs'), {
+                type: 'SYSTEM_UPDATE',
+                version: nextVersion,
+                timestamp: serverTimestamp(),
+                status: 'SUCCESS',
+                analyst: 'Global Kernel'
+            });
+        } catch (error) {
+            console.error('Push Update Failed:', error);
+        } finally {
+            setIsPushingUpdate(false);
+        }
+    };
 
     // Load from localStorage on mount
     // Force register the current user in the accounts collection for tracking
@@ -488,7 +520,7 @@ export default function Dashboard() {
                             ShadowTrace
                         </h1>
                         <div className="flex items-center gap-2 mt-1">
-                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyber-accent font-bold">{APP_VERSION}</p>
+                            <p className="text-[10px] uppercase tracking-[0.3em] text-cyber-accent font-bold">v{dynamicVersion}-LIVE_SYNC</p>
                             <span className="h-1 w-1 rounded-full bg-zinc-800" />
                             <p className="text-[10px] uppercase tracking-widest text-zinc-500 font-bold">{syncStatus === 'QUOTA' ? 'SYNC OFFLINE (QUOTA LIMIT)' : 'Secure Identity Mesh'}</p>
                             {commanderName && (
