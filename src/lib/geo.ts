@@ -30,48 +30,72 @@ export async function fetchGeoByIP(ip?: string): Promise<GeoLocation | null> {
     if (isInternal) {
         return {
             status: 'success',
-            country: 'Internal Static',
-            countryCode: 'INT',
-            region: 'SOC',
-            regionName: 'Command Node',
-            city: 'Local Node',
+            country: 'Internal Management Node',
+            countryCode: 'SOC',
+            region: 'CMD',
+            regionName: 'Command & Control',
+            city: 'ShadowTrace System',
             zip: '',
             lat: 0,
             lon: 0,
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-            isp: 'Internal Command Infrastructure',
-            org: 'ShadowTrace SOC',
-            as: 'INTERNAL',
+            isp: 'ShadowTrace Command Infrastructure',
+            org: 'Internal Secure Network',
+            as: 'LOCAL_PIPE',
             query: target
         } as GeoLocation;
     }
 
     try {
-        const response = await fetch(`https://freeipapi.com/api/json/${target}`);
-        if (!response.ok) throw new Error('API unreachable');
-        const data = await response.json();
-        
-        if (!data || !data.latitude) {
-            console.error('[GEO_FETCH_ERROR] Invalid response from provider');
-            return null;
+        // Primary: ipapi.co (High Fidelity Forensic Data)
+        const response = await fetch(`https://ipapi.co/${target}/json/`);
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.error) {
+                return {
+                    status: 'success',
+                    country: data.country_name || 'Unknown Origin',
+                    countryCode: data.country_code || '??',
+                    region: data.region_code || '',
+                    regionName: data.region || 'Unknown Region',
+                    city: data.city || 'Unknown City',
+                    zip: data.postal || '',
+                    lat: data.latitude,
+                    lon: data.longitude,
+                    timezone: data.timezone || 'UTC',
+                    isp: data.org || 'Detected ISP', // ipapi.co uses 'org' for ISP usually
+                    org: data.org || '',
+                    as: data.asn || '',
+                    query: data.ip || target
+                } as GeoLocation;
+            }
+        }
+
+        // Secondary Fallback: ipwho.is
+        const altResponse = await fetch(`https://ipwho.is/${target}`);
+        if (altResponse.ok) {
+            const data = await altResponse.json();
+            if (data && data.success) {
+                return {
+                    status: 'success',
+                    country: data.country || 'Unknown Origin',
+                    countryCode: data.country_code || '??',
+                    region: data.region || '',
+                    regionName: data.region || 'Unknown Region',
+                    city: data.city || 'Unknown City',
+                    zip: data.postal || '',
+                    lat: data.latitude,
+                    lon: data.longitude,
+                    timezone: data.timezone?.id || 'UTC',
+                    isp: data.connection?.isp || 'Detected ISP',
+                    org: data.connection?.org || '',
+                    as: data.connection?.asn ? `AS${data.connection.asn}` : '',
+                    query: data.ip || target
+                } as GeoLocation;
+            }
         }
         
-        return {
-            status: 'success',
-            country: data.countryName || 'Unknown Origin',
-            countryCode: data.countryCode || '??',
-            region: data.regionName || '',
-            regionName: data.regionName || 'Unknown Region',
-            city: data.cityName || 'Unknown City',
-            zip: data.zipCode || '',
-            lat: data.latitude,
-            lon: data.longitude,
-            timezone: data.timeZone || 'UTC',
-            isp: data.ipVersion === 4 ? (data.isp || 'Detected ISP') : 'Detected ISP (v6)',
-            org: '',
-            as: '',
-            query: data.ipAddress || target
-        } as GeoLocation;
+        return null;
     } catch (error) {
         console.error('[GEO_FETCH_EXCEPTION]', error);
         return null;

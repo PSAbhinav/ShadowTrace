@@ -8,6 +8,7 @@ import { signInWithPopup } from "firebase/auth";
 import { doc, setDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import TotpSetupModal from "@/components/TotpSetupModal";
 import { fetchGeoByIP } from "@/lib/geo";
+import { getPublicIP } from "@/lib/network";
 
 export default function LoginPage() {
     const router = useRouter();
@@ -37,7 +38,8 @@ export default function LoginPage() {
 
     const logSecurityEvent = async (user: any, status: string) => {
         try {
-            const geo = await fetchGeoByIP();
+            const publicIp = await getPublicIP();
+            const geo = await fetchGeoByIP(publicIp);
             const logEntry = {
                 uid: user.uid,
                 email: user.email,
@@ -75,7 +77,8 @@ export default function LoginPage() {
                     explanation: status === 'SUCCESS' 
                         ? `Identity handover successful. Secure session established from ${geo?.city || 'Verified Node'}.`
                         : `Repeated authentication failure detected from ${geo?.query || 'Unknown IP'}. Potential brute force attempt.`,
-                    reasoning: status === 'SUCCESS' ? 'Valid credential + MFA match' : 'Multiple invalid credential signatures'
+                    reasoning: status === 'SUCCESS' ? 'Valid credential + MFA match' : 'Multiple invalid credential signatures',
+                    confidence: status === 'SUCCESS' ? 2 : 98
                 },
                 forensicDetails: logEntry.device
             });

@@ -159,11 +159,14 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
             }
             const data = snap.docs.map(d => {
                 const docData = d.data();
+                const rawTs = docData.timestamp?.toDate ? docData.timestamp.toDate() : new Date(docData.timestamp);
                 return {
                     id: d.id,
                     ...docData,
-                    // Format timestamp if it's a Firestore Timestamp
-                    timestamp: docData.timestamp?.toDate ? docData.timestamp.toDate().toLocaleString() : docData.timestamp
+                    // Forensic Standard: ISO-8601 with Locale fallback for readability
+                    timestamp: rawTs.toLocaleString('en-US', { 
+                        month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+                    }) + " UTC"
                 };
             });
             setLogs(data.sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
@@ -177,11 +180,14 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
             }
             const data = snap.docs.map(d => {
                 const docData = d.data();
+                const rawTs = docData.createdAt?.toDate ? docData.createdAt.toDate() : new Date(docData.createdAt);
                 return {
                     id: d.id,
                     ...docData,
-                    // Format createdAt if it's a Firestore Timestamp
-                    createdAt: docData.createdAt?.toDate ? docData.createdAt.toDate().toLocaleString() : docData.createdAt
+                    // Forensic Standard: ISO-8601 with Locale fallback for readability
+                    createdAt: rawTs.toLocaleString('en-US', { 
+                        month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+                    }) + " UTC"
                 };
             });
             setAlerts(data.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
@@ -336,7 +342,8 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                             status: log.status,
                                             location: log.location || { city: 'Unknown', lat: 0, lng: 0 },
                                             threat: { type: log.status === 'OK' ? 'Standard Protocol' : 'Suspicious Probe', severity: log.status === 'OK' ? 'Low' : 'Medium' },
-                                            analyst: { explanation: `This event was captured during monitoring. ${log.status === 'OK' ? 'No threat detected.' : 'Repeated failures may trigger an alert.'}`, confidence: log.status === 'OK' ? 5 : 0 }
+                                            analyst: { explanation: `This event was captured during monitoring. ${log.status === 'OK' ? 'No threat detected.' : 'Repeated failures may trigger an alert.'}`, confidence: log.status === 'OK' ? 5 : 0 },
+                                            forensicDetails: log.device || log.forensicDetails || {}
                                         });
                                     }
                                 }}
@@ -347,8 +354,15 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                         <Eye size={12} className={log.status !== 'OK' ? 'animate-pulse' : ''} />
                                     </div>
                                     <div>
-                                        <div className="text-[11px] font-bold text-white group-hover:text-cyber-accent transition-colors">{log.endpoint} <span className="text-zinc-500 ml-2">{log.ip}</span></div>
-                                        <div className="text-[9px] text-zinc-600 uppercase font-mono">{log.timestamp}</div>
+                                        <div className="text-[11px] font-bold text-white group-hover:text-cyber-accent transition-colors">
+                                            {log.endpoint} 
+                                            <span className="text-zinc-500 ml-2">
+                                                {log.ip?.startsWith('192.168.') || log.ip === '::1' || log.ip === '127.0.0.1' ? (
+                                                    <span className="bg-white/5 px-1.5 py-0.5 rounded text-[8px] text-cyber-blue border border-cyber-blue/20">INTERNAL NODE</span>
+                                                ) : log.ip}
+                                            </span>
+                                        </div>
+                                        <div className="text-[9px] text-zinc-600 uppercase font-mono tracking-tighter">{log.timestamp}</div>
                                     </div>
                                 </div>
                                 <div className={`text-[10px] font-black px-2 py-0.5 rounded ${log.status === 'OK' ? 'bg-cyan-500/10 text-cyan-500' : 'bg-red-500/10 text-red-500'}`}>
@@ -498,7 +512,22 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                             <h2 className="text-lg font-black text-pink-500 uppercase tracking-[0.3em] flex items-center gap-3 italic">
                                 <Crosshair size={24} className="animate-spin-slow" /> Forensic Intelligence Deep-Dive
                             </h2>
-                            <p className="text-[10px] text-zinc-500 font-mono mt-1">TRACE_ID: {selectedAlert.id} // THREAT_LEVEL: {(selectedAlert.threat?.severity || 'LOW').toUpperCase()}</p>
+                            <div className="flex items-center gap-4 mt-1">
+                                <p className="text-[10px] text-zinc-500 font-mono">TRACE_ID: {selectedAlert.id} // THREAT_LEVEL: {(selectedAlert.threat?.severity || 'LOW').toUpperCase()}</p>
+                                <button 
+                                    onClick={() => {
+                                        setRealGeo(null);
+                                        if (selectedAlert?.ip) {
+                                            fetchGeoByIP(selectedAlert.ip).then(geo => {
+                                                if (geo) setRealGeo(geo);
+                                            });
+                                        }
+                                    }}
+                                    className="px-2 py-0.5 bg-pink-500/10 border border-pink-500/20 text-pink-500 text-[8px] font-black uppercase rounded hover:bg-pink-500/20 transition-all flex items-center gap-1.5"
+                                >
+                                    <RefreshCw size={8} className={!realGeo ? 'animate-spin' : ''} /> Force Live Scan
+                                </button>
+                            </div>
                         </div>
                         <button 
                             onClick={() => setSelectedAlert(null)}
@@ -527,9 +556,9 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                         </span>
                                     </div>
                                     <div className="flex justify-between">
-                                        <span className="text-[10px] text-zinc-500 uppercase">ISP Provider</span>
+                                        <span className="text-[10px] text-zinc-500 uppercase">ISI / ISP Provider</span>
                                         <span className="text-[10px] text-white italic">
-                                            {realGeo?.isp || selectedAlert.forensicDetails?.isp || 'Encrypted Traffic'}
+                                            {realGeo?.isp || selectedAlert.forensicDetails?.isp || (selectedAlert.ip === '::1' ? 'Internal Network' : 'Encrypted Trace')}
                                         </span>
                                     </div>
                                 </div>
@@ -546,11 +575,11 @@ export default function DetailedAccountView({ params }: { params: Promise<{ id: 
                                     </div>
                                     <div className="flex justify-between border-b border-white/5 pb-1">
                                         <span className="text-[10px] text-zinc-500 uppercase">Resolution</span>
-                                        <span className="text-[10px] text-white">{selectedAlert.forensicDetails?.resolution || 'Unknown'}</span>
+                                        <span className="text-[10px] text-white">{selectedAlert.forensicDetails?.resolution || (selectedAlert.ip === '::1' ? 'Local Display' : 'Legacy Trace')}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span className="text-[10px] text-zinc-500 uppercase">Timezone</span>
-                                        <span className="text-[10px] text-white">{selectedAlert.forensicDetails?.timezone || 'GMT+0'}</span>
+                                        <span className="text-[10px] text-white">{selectedAlert.forensicDetails?.timezone || (selectedAlert.ip === '::1' ? 'Local Time' : 'Capture Error')}</span>
                                     </div>
                                 </div>
                             </div>

@@ -275,15 +275,25 @@ export default function Dashboard() {
             else setSyncStatus('OFFLINE');
         });
 
-        const alertsQ = query(collection(db, "alerts"), where("accountId", "==", selectedAccountId), limit(50)); // Remove orderBy
+        const alertsQ = query(collection(db, "alerts"), where("accountId", "==", selectedAccountId), limit(50));
         const unsubAlerts = onSnapshot(alertsQ, (snap) => {
-            const data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            // Sort locally
-            const sorted = data.sort((a: any, b: any) => {
-                const dateA = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt)) : 0;
-                const dateB = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt)) : 0;
-                return dateB - dateA;
+            const data = snap.docs.map(d => {
+                const docData = d.data();
+                const rawTs = docData.createdAt?.toDate ? docData.createdAt.toDate() : new Date(docData.createdAt);
+                return {
+                    id: d.id,
+                    ...docData,
+                    // Forensic Standard: ISO-8601 with Locale fallback
+                    createdAt: rawTs.toLocaleString('en-US', { 
+                        month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
+                    }) + " UTC",
+                    timestampRaw: rawTs // Keep raw for sorting
+                };
             });
+            
+            // Sort locally
+            const sorted = data.sort((a: any, b: any) => b.timestampRaw - a.timestampRaw);
+            
             setAlerts(prev => {
                 // Keep local test alerts that haven't hit DB yet
                 const localTests = prev.filter(a => a.id.startsWith('test-'));
@@ -727,8 +737,11 @@ export default function Dashboard() {
                                                 </div>
                                                 <div className={`flex items-center gap-2 text-[9px] font-mono mb-2 ${isIdentitySuccess ? 'text-zinc-500' : 'text-cyber-accent'}`}>
                                                     <MapPin className="w-2.5 h-2.5" />
-                                                    {alert.location?.city || 'Verified Location'} ({alert.ip})
+                                                    {alert.location?.city || 'Verified Location'} ({alert.ip?.startsWith('192.168.') || alert.ip === '::1' || alert.ip === '127.0.0.1' ? (
+                                                        <span className="bg-white/5 px-1 py-0.5 rounded text-[7px] text-cyber-blue border border-cyber-blue/10 tracking-tighter">INTERNAL NODE</span>
+                                                    ) : alert.ip})
                                                 </div>
+                                                <div className="text-[8px] text-zinc-600 font-mono mb-2 uppercase tracking-tighter">{alert.createdAt}</div>
                                                 <p className="text-[9px] text-zinc-400 leading-relaxed font-mono mb-4">{alert.analyst.explanation}</p>
                                                 <div className="flex gap-2">
                                                     {!isIdentitySuccess ? (
